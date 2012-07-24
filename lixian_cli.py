@@ -211,12 +211,15 @@ def download_single_task(client, download, task, options):
 				raise Exception('bt hash check failed')
 	else:
 		if output_dir and not os.path.exists(output_dir):
-			os.makedirs(output_dir)
+			os.makedirs(output_dir,0777)
 		print 'Downloading', output_name, '...'
 		download2(client, download_url, output_path, task)
 
 	if delete and 'files' not in task:
 		client.delete_task(task)
+	print "Setting permission and ownership"
+	os.system("chown nobody:nogroup -R {0}".format(output_dir))
+	os.system("chmod -R 777 {0}".format(output_dir))
 
 def download_multiple_tasks(client, download, tasks, options):
 	for task in tasks:
