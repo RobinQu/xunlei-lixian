@@ -94,7 +94,7 @@ def bencode(v):
 	return stream.getvalue()
 
 def assert_content(content):
-	assert content.startswith('d8:announce') or content.startswith('d13:announce-list'), 'Probably not a valid content file [%s...]' % repr(content[:17])
+	assert re.match(r'd\d+:', content), 'Probably not a valid content file [%s...]' % repr(content[:17])
 
 def info_hash_from_content(content):
 	assert_content(content)
@@ -159,7 +159,17 @@ def verify_bt_multiple(folder, info, file_set=None, progress_callback=None):
 	# TODO: check md5sum if available
 	piece_length = info['piece length']
 	assert piece_length > 0
-	files = [{'path':os.path.join(folder, apply(os.path.join, x['path'])), 'length':x['length'], 'file':x['path']} for x in info['files']]
+
+	path_encoding = info.get('encoding', 'utf-8')
+	files = []
+	for x in info['files']:
+		if 'path.utf-8' in x:
+			unicode_path = [p.decode('utf-8') for p in x['path.utf-8']]
+		else:
+			unicode_path = [p.decode(path_encoding) for p in x['path']]
+		native_path = [p.encode(default_encoding) for p in unicode_path]
+		utf8_path = [p.encode('utf-8') for p in unicode_path]
+		files.append({'path':os.path.join(folder, apply(os.path.join, native_path)), 'length':x['length'], 'file':utf8_path})
 
 	sha1_stream = sha1_reader(info['pieces'], progress_callback=progress_callback)
 	sha1sum = hashlib.sha1()
@@ -199,16 +209,17 @@ def verify_bt_multiple(folder, info, file_set=None, progress_callback=None):
 						sha1_update_stream(sha1sum, stream, size)
 						piece_left -= size
 		else:
-			while size >= piece_left:
-				size -= piece_left
-				sha1_stream.next_sha1()
-				sha1sum = hashlib.sha1()
-				piece_left = piece_length
 			if size:
-				complete_piece = False
-				piece_left -= size
-			else:
-				complete_piece = True
+				while size >= piece_left:
+					size -= piece_left
+					sha1_stream.next_sha1()
+					sha1sum = hashlib.sha1()
+					piece_left = piece_length
+				if size:
+					complete_piece = False
+					piece_left -= size
+				else:
+					complete_piece = True
 
 	if piece_left < piece_length:
 		if complete_piece:

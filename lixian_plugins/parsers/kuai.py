@@ -1,4 +1,6 @@
 
+from lixian_plugins.api import page_parser
+
 import urllib
 import re
 
@@ -14,6 +16,8 @@ def generate_lixian_url(info):
 
 def parse_link(html):
 	attrs = dict(re.findall(r'(\w+)="([^"]+)"', html))
+	if 'file_url' not in attrs:
+		return
 	keys = {'url': 'file_url', 'name':'file_name', 'size':'file_size', 'gcid':'gcid', 'cid':'cid', 'gcid_resid':'gcid_resid'}
 	info = {}
 	for k in keys:
@@ -21,12 +25,13 @@ def parse_link(html):
 	#info['name'] = urllib.unquote(info['name'])
 	return info
 
+@page_parser('http://kuai.xunlei.com/d/')
 def kuai_links(url):
 	assert url.startswith('http://kuai.xunlei.com/d/'), url
-	html = urllib.urlopen(url).read()
+	html = urllib.urlopen(url).read().decode('utf-8')
 	#return re.findall(r'file_url="([^"]+)"', html)
 	#return map(parse_link, re.findall(r'<span class="f_w".*?</li>', html, flags=re.S))
-	return map(parse_link, re.findall(r'<span class="c_1">.*?</span>', html, flags=re.S))
+	return filter(bool, map(parse_link, re.findall(r'<span class="c_1">.*?</span>', html, flags=re.S)))
 
 extend_link = kuai_links
 
